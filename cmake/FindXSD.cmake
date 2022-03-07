@@ -73,11 +73,15 @@ endif()
 # XSD_SCHEMA( FOO_SRCS Foo.xsd --root-element-first --generate-serialization )
 #
 # On return, FOO_SRCS will contain Foo.cxx.
+#
+# Another variable called XSD_SCHEMA_INCLUDE_DIR will point to the include directory of the new .hxx files.
 
 macro(XSD_SCHEMA NAME FILE)
 
     #
     # Make a full path from the source directory
+
+    set(XSD_SCHEMA_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
     set(xs_SRC "${FILE}")
 
@@ -87,9 +91,9 @@ macro(XSD_SCHEMA NAME FILE)
     # generated files.
 
     get_filename_component(xs_FILE "${FILE}" NAME_WE)
-    set(xs_CXX "${CMAKE_CURRENT_BINARY_DIR}/${xs_FILE}.cxx")
-    set(xs_HXX "${CMAKE_CURRENT_BINARY_DIR}/${xs_FILE}.hxx")
-    set(xs_IXX "${CMAKE_CURRENT_BINARY_DIR}/${xs_FILE}.ixx")
+    set(xs_CXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.cxx")
+    set(xs_HXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.hxx")
+    set(xs_IXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.ixx")
 
     #
     # Add the source files to the NAME variable, which presumably will be used to
