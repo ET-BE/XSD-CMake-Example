@@ -63,7 +63,7 @@ if(XSD_FOUND)
 endif()
 
 #
-# Macro that attempts to generate C++ files from an XML schema. The NAME
+# Macro that attempts to generate C++ files from an XML schema. The SRC_FILES_OUTPUT
 # argument is the name of the CMake variable to use to store paths to the
 # derived C++ source file. The FILE argument is the path of the schema file to
 # process. Additional arguments should be XSD command-line options.
@@ -76,44 +76,75 @@ endif()
 #
 # Another variable called XSD_SCHEMA_INCLUDE_DIR will point to the include directory of the new .hxx files.
 
-macro(XSD_SCHEMA NAME FILE)
+function(parse_xsd_schema_args _xsd_files _xsd_options)
+
+    # Function to split the list of XSD files and XSD CLI options
+
+    foreach(current_arg ${ARGN})
+
+        if(${current_arg} STREQUAL "OPTIONS")
+            set(_XSD_DOING_OPTIONS TRUE)
+        else()
+            if(_XSD_DOING_OPTIONS)
+                set(_xsd_options_p ${_xsd_options_p} ${current_arg})
+            else()
+                set(_xsd_files_p ${_xsd_files_p} ${current_arg})
+            endif()
+        endif()
+
+    endforeach()
+
+    set(${_xsd_files} ${_xsd_files_p} PARENT_SCOPE)
+    set(${_xsd_options} ${_xsd_options_p} PARENT_SCOPE)
+
+endfunction()
+
+macro(xsd_schema SRC_FILES_OUTPUT)
+
+    parse_xsd_schema_args(XSD_FILES OPTIONS ${ARGN})
 
     #
     # Make a full path from the source directory
 
-    set(XSD_SCHEMA_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR})
+    set(XSD_SCHEMA_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/xsd")
 
-    set(xs_SRC "${FILE}")
-
-    #
-    # XSD will generate two or three C++ files (*.cxx,*.hxx,*.ixx). Get the
-    # destination file path sans any extension and then build paths to the
-    # generated files.
-
-    get_filename_component(xs_FILE "${FILE}" NAME_WE)
-    set(xs_CXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.cxx")
-    set(xs_HXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.hxx")
-    set(xs_IXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.ixx")
+    file(MAKE_DIRECTORY ${XSD_SCHEMA_INCLUDE_DIR})
 
     #
-    # Add the source files to the NAME variable, which presumably will be used to
-    # define the source of another target.
+    # Allow for list of XSD files
+    foreach(xs_SRC ${XSD_FILES})
 
-    list(APPEND ${NAME} ${xs_CXX})
+        #
+        # XSD will generate two or three C++ files (*.cxx,*.hxx,*.ixx). Get the
+        # destination file path sans any extension and then build paths to the
+        # generated files.
 
-    #
-    # Set up a generator for the output files from the given schema file using
-    # the XSD cxx-tree command.
+        get_filename_component(xs_FILE "${xs_SRC}" NAME_WE)
+        set(xs_CXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.cxx")
+        set(xs_HXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.hxx")
+        set(xs_IXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.ixx")
 
-    add_custom_command(OUTPUT "${xs_CXX}" "${xs_HXX}" "${xs_IXX}"
-            COMMAND ${XSD_EXECUTABLE}
-            ARGS "cxx-tree" ${ARGN} ${xs_SRC}
-            DEPENDS ${xs_SRC})
+        #
+        # Add the source files to the SRC_FILES variable, which presumably will be used to
+        # define the source of another target.
 
-    #
-    # Don't fail if a generated file does not exist.
+        list(APPEND ${SRC_FILES_OUTPUT} ${xs_CXX})
 
-    set_source_files_properties("${xs_CXX}" "${xs_HXX}" "${xs_IXX}"
-            PROPERTIES GENERATED TRUE)
+        #
+        # Set up a generator for the output files from the given schema file using
+        # the XSD cxx-tree command.
+
+        add_custom_command(OUTPUT "${xs_CXX}" "${xs_HXX}" "${xs_IXX}"
+                COMMAND ${XSD_EXECUTABLE}
+                ARGS "cxx-tree" --output-dir ${XSD_SCHEMA_INCLUDE_DIR} ${OPTIONS} ${xs_SRC}
+                DEPENDS ${xs_SRC})
+
+        #
+        # Don't fail if a generated file does not exist.
+
+        set_source_files_properties("${xs_CXX}" "${xs_HXX}" "${xs_IXX}"
+                PROPERTIES GENERATED TRUE)
+
+    endforeach()
 
 endmacro()
