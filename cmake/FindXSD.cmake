@@ -76,43 +76,27 @@ endif()
 #
 # Another variable called XSD_SCHEMA_INCLUDE_DIR will point to the include directory of the new .hxx files.
 
-function(parse_xsd_schema_args _xsd_files _xsd_options)
-
-    # Function to split the list of XSD files and XSD CLI options
-
-    foreach(current_arg ${ARGN})
-
-        if(${current_arg} STREQUAL "OPTIONS")
-            set(_XSD_DOING_OPTIONS TRUE)
-        else()
-            if(_XSD_DOING_OPTIONS)
-                set(_xsd_options_p ${_xsd_options_p} ${current_arg})
-            else()
-                set(_xsd_files_p ${_xsd_files_p} ${current_arg})
-            endif()
-        endif()
-
-    endforeach()
-
-    set(${_xsd_files} ${_xsd_files_p} PARENT_SCOPE)
-    set(${_xsd_options} ${_xsd_options_p} PARENT_SCOPE)
-
-endfunction()
-
 macro(xsd_schema SRC_FILES_OUTPUT)
 
-    parse_xsd_schema_args(XSD_FILES OPTIONS ${ARGN})
+    set(oneValueArgs INCLUDE_DIR_OUTPUT)
+    set(multiValueArgs XSD_FILES OPTIONS)
+    cmake_parse_arguments(XSD_SCHEMA "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     #
     # Make a full path from the source directory
 
-    set(XSD_SCHEMA_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/xsd")
+    set(_xsd_dir "${CMAKE_CURRENT_BINARY_DIR}/xsd")
 
-    file(MAKE_DIRECTORY ${XSD_SCHEMA_INCLUDE_DIR})
+    file(MAKE_DIRECTORY ${_xsd_dir})
+
+    if(XSD_SCHEMA_INCLUDE_DIR_OUTPUT)
+        # Write path to new variable with user-defined name
+        set(${XSD_SCHEMA_INCLUDE_DIR_OUTPUT} ${_xsd_dir})
+    endif()
 
     #
     # Allow for list of XSD files
-    foreach(xs_SRC ${XSD_FILES})
+    foreach(xs_SRC ${XSD_SCHEMA_XSD_FILES})
 
         #
         # XSD will generate two or three C++ files (*.cxx,*.hxx,*.ixx). Get the
@@ -120,9 +104,9 @@ macro(xsd_schema SRC_FILES_OUTPUT)
         # generated files.
 
         get_filename_component(xs_FILE "${xs_SRC}" NAME_WE)
-        set(xs_CXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.cxx")
-        set(xs_HXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.hxx")
-        set(xs_IXX "${XSD_SCHEMA_INCLUDE_DIR}/${xs_FILE}.ixx")
+        set(xs_CXX "${_xsd_dir}/${xs_FILE}.cxx")
+        set(xs_HXX "${_xsd_dir}/${xs_FILE}.hxx")
+        set(xs_IXX "${_xsd_dir}/${xs_FILE}.ixx")
 
         #
         # Add the source files to the SRC_FILES variable, which presumably will be used to
@@ -136,7 +120,7 @@ macro(xsd_schema SRC_FILES_OUTPUT)
 
         add_custom_command(OUTPUT "${xs_CXX}" "${xs_HXX}" "${xs_IXX}"
                 COMMAND ${XSD_EXECUTABLE}
-                ARGS "cxx-tree" --output-dir ${XSD_SCHEMA_INCLUDE_DIR} ${OPTIONS} ${xs_SRC}
+                ARGS "cxx-tree" --output-dir ${_xsd_dir} ${XSD_SCHEMA_OPTIONS} ${xs_SRC}
                 DEPENDS ${xs_SRC})
 
         #
